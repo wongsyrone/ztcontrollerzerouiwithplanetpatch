@@ -1,6 +1,6 @@
 # docker-zerotier-controller
 
-Dockernized ZeroTierOne controller with zero-ui web interface. [中文讨论](https://v2ex.com/t/799623)
+**Personal** Dockernized ZeroTierOne controller with zero-ui web interface. [中文讨论](https://v2ex.com/t/799623)
 
 ## Customize ZeroTierOne's controller planets
 

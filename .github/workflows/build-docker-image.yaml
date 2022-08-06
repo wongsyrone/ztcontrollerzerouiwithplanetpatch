@@ -1,16 +1,16 @@
-name: 'Build docker image'
+name: 'Build docker image-wongsyrone'
 on: 
   # Auto build on push to main branch
   push:
     paths-ignore:
-      - “README.md”
+      - "README.md"
       - ".gitignore"
       - "LICENSE"
     branches:
       - main
   # Auto build @ every Monday 6:00am
-  schedule:
-    - cron: '0 6 * * 1'
+  #schedule:
+  #  - cron: '0 6 * * 1'
 jobs:
   build:
     name: 'Build docker image'
@@ -47,5 +47,5 @@ jobs:
       with:
         context: .
         push: true
-        tags: sbilly/zerotier-controller:latest
+        tags: wongsyrone/ztcontrollerzerouiwithplanetpatch:latest
     
