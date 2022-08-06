@@ -111,7 +111,7 @@ COPY --from=builder /src/config/world.c /app/config/world.c
 
 # Environment
 
-RUN apt update && apt -y install gnupg curl sudo && \
+RUN apt update && apt -y install tree gnupg curl sudo && \
     curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | sudo apt-key add - && \
     echo "deb https://dl.yarnpkg.com/debian/ stable main" | sudo tee /etc/apt/sources.list.d/yarn.list && \
     curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION} | bash - && \
@@ -152,6 +152,11 @@ RUN chmod +x /etc/services.d/*/run
 # schema
 COPY ./schema /app/schema/
 
+# show zerotier config path at last
+RUN tree /app/config
+RUN tree /app/ZeroTierOne/
+
+# default ports
 EXPOSE 4000 9993 9993/UDP
 ENV S6_KEEP_ENV=1
 
