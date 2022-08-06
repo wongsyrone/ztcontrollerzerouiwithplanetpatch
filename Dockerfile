@@ -78,6 +78,7 @@ RUN cd /src/ZeroTierOne/attic/world && \
     bash build.sh
 
 # Downloading and build latest tagged zero-ui
+
 RUN ZERO_UI_VERSION=$(curl --silent "https://api.github.com/repos/dec0dOS/zero-ui/tags" | jq -r '.[0].name') && \
     echo "ZERO_UI_VERSION is ${ZERO_UI_VERSION}" && \
     curl https://codeload.github.com/dec0dOS/zero-ui/tar.gz/refs/tags/${ZERO_UI_VERSION} --output /tmp/zero-ui.tar.gz && \
@@ -88,7 +89,7 @@ RUN ZERO_UI_VERSION=$(curl --silent "https://api.github.com/repos/dec0dOS/zero-u
     rm -rf /tmp/zero-ui.tar.gz && \
     cd /src/zero-ui && \
     yarn install && \
-    yarn build
+    INLINE_RUNTIME_CHUNK=false GENERATE_SOURCEMAP=false yarn build
 
 FROM ${BUILD_IMAGE}:${BUILD_IMAGE_VERSION}
 
