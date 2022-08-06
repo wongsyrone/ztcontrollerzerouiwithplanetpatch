@@ -106,7 +106,7 @@ RUN cd /app/ZeroTierOne && \
 
 # mkworld @ ZeroTierOne
 COPY --from=builder /src/ZeroTierOne/attic/world/mkworld /app/ZeroTierOne/mkworld
-COPY --from=builder /src/ZeroTierOne/attic/world/world.bin /app/config/world.bin
+COPY --from=builder /src/ZeroTierOne/attic/world/world.bin /app/config/planet
 COPY --from=builder /src/config/world.c /app/config/world.c
 
 # Environment
@@ -142,7 +142,7 @@ WORKDIR /app/backend
 COPY --from=builder /src/zero-ui/backend/package*.json /app/backend
 # - allow to download planet directly
 RUN yarn install && \
-    ln -s /app/config/world.bin /app/frontend/build/static/planet
+    ln -s /app/config/planet /app/frontend/build/static/planet
 COPY --from=builder /src/zero-ui/backend /app/backend
 
 # s6-overlay
