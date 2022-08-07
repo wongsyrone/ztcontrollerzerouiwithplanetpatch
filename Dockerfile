@@ -86,8 +86,15 @@ RUN ZERO_UI_VERSION=$(curl --silent "https://api.github.com/repos/dec0dOS/zero-u
     cd /src && \
     tar fxz /tmp/zero-ui.tar.gz && \
     mv /src/zero-ui-* /src/zero-ui && \
-    rm -rf /tmp/zero-ui.tar.gz && \
-    cd /src/zero-ui && \
+    rm -rf /tmp/zero-ui.tar.gz
+
+# patch zero-ui
+ENV QUILT_PATCHES=zero_ui_patches
+COPY zero_ui_patches /src/zero-ui/zero_ui_patches
+
+RUN cd /src/zero-ui && \
+    quilt series && \
+    quilt push -a && \
     yarn install && \
     INLINE_RUNTIME_CHUNK=false GENERATE_SOURCEMAP=false yarn build
 
@@ -137,13 +144,17 @@ RUN S6_OVERLAY_VERSION=$(curl --silent "https://api.github.com/repos/just-contai
 
 # Frontend @ zero-ui
 COPY --from=builder /src/zero-ui/frontend/build /app/frontend/build/
+COPY --from=builder /src/zero-ui/frontend/down_folder /app/frontend/down_folder
+
+# show down_folder
+RUN tree /app/frontend/down_folder
 
 # Backend @ zero-ui
 WORKDIR /app/backend
 COPY --from=builder /src/zero-ui/backend/package*.json /app/backend
-# - allow to download planet directly
+# - allow to download planet when logged-in
 RUN yarn install && \
-    ln -s /app/config/planet /app/frontend/build/static/planet
+    ln -s /app/config/planet /app/frontend/down_folder/planet
 COPY --from=builder /src/zero-ui/backend /app/backend
 
 # s6-overlay
