@@ -6,6 +6,10 @@ if [ -z "$NODE_ENV" ]; then
     printf "production" > /var/run/s6/container_environment/NODE_ENV
 fi
 
+if [ -z "$ZU_LISTEN_PORT" ]; then
+    printf "4000" > /var/run/s6/container_environment/ZU_LISTEN_PORT
+fi
+
 if [ -z "$LISTEN_ADDRESS" ]; then
     printf "0.0.0.0" > /var/run/s6/container_environment/LISTEN_ADDRESS
 fi

@@ -146,9 +146,6 @@ RUN S6_OVERLAY_VERSION=$(curl --silent "https://api.github.com/repos/just-contai
 COPY --from=builder /src/zero-ui/frontend/build /app/frontend/build/
 COPY --from=builder /src/zero-ui/frontend/down_folder /app/frontend/down_folder
 
-# show down_folder
-RUN tree /app/frontend/down_folder
-
 # Backend @ zero-ui
 WORKDIR /app/backend
 COPY --from=builder /src/zero-ui/backend/package*.json /app/backend
@@ -157,6 +154,9 @@ RUN yarn install && \
     ln -s /app/config/planet /app/frontend/down_folder/planet
 COPY --from=builder /src/zero-ui/backend /app/backend
 
+# Create empty tls folder for TLS cert and key
+RUN mkdir -p /app/backend/tls
+
 # s6-overlay
 COPY ./s6-files/etc /etc/
 RUN chmod +x /etc/services.d/*/run
@@ -164,12 +164,17 @@ RUN chmod +x /etc/services.d/*/run
 # schema
 COPY ./schema /app/schema/
 
-# show zerotier config path at last
+# show customize important path at last
 RUN tree /app/config
-RUN tree /app/ZeroTierOne/
+RUN tree /app/ZeroTierOne
+RUN tree /app/backend/tls
+RUN tree /app/frontend/down_folder
 
 # default ports
-EXPOSE 4000 9993 9993/UDP
+# 3000 - http
+# 4000 - https
+# 9993 & 9993/UDP - zerotier
+EXPOSE 3000 4000 9993 9993/UDP
 ENV S6_KEEP_ENV=1
 
 ENTRYPOINT ["/init"]
