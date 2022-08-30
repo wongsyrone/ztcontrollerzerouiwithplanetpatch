@@ -1,7 +1,7 @@
-From 17bf258ea1fe986bdcd9accba23830832cc8a6e2 Mon Sep 17 00:00:00 2001
+From 63fe3fd8a2913f6e58a48b058c3d566ecc8f9279 Mon Sep 17 00:00:00 2001
 From: Syrone Wong <wong.syrone@gmail.com>
 Date: Sun, 7 Aug 2022 20:41:31 +0800
-Subject: [PATCH] feat: add file download support
+Subject: [PATCH 1/3] feat: add file download support
 
 feat: backend: new api to download file such as planet
 
@@ -9,6 +9,8 @@ feat: backend: new api to download file such as planet
 http://locahost:4000/downfile/:downfilename
 
 feat: frontend: add file download component for ease use
+
+adapt to v1.5.0 auth header
 
 Signed-off-by: Syrone Wong <wong.syrone@gmail.com>
 ---
@@ -26,10 +28,10 @@ Signed-off-by: Syrone Wong <wong.syrone@gmail.com>
  create mode 100644 frontend/src/components/HomeLoggedIn/components/DownloadFile/index.jsx
 
 diff --git a/backend/app.js b/backend/app.js
-index 263a965..f2a4939 100644
+index 6e5a3dd..17411e5 100644
 --- a/backend/app.js
 +++ b/backend/app.js
-@@ -12,6 +12,7 @@ const authRoutes = require("./routes/auth");
+@@ -14,6 +14,7 @@ const authRoutes = require("./routes/auth");
  const networkRoutes = require("./routes/network");
  const memberRoutes = require("./routes/member");
  const controllerRoutes = require("./routes/controller");
@@ -37,7 +39,7 @@ index 263a965..f2a4939 100644
  
  const app = express();
  
-@@ -64,6 +65,7 @@ routerController.use("", controllerRoutes);
+@@ -82,6 +83,7 @@ routerController.use("", controllerRoutes);
  app.use("/auth", authRoutes);
  app.use("/api", routerAPI); // offical SaaS API compatible
  app.use("/controller", routerController); // other controller-specific routes
@@ -119,7 +121,7 @@ index ff45f76..8d79365 100644
          <Grid item xs={6}>
 diff --git a/frontend/src/components/HomeLoggedIn/components/DownloadFile/DownloadFile.jsx b/frontend/src/components/HomeLoggedIn/components/DownloadFile/DownloadFile.jsx
 new file mode 100644
-index 0000000..83831b2
+index 0000000..9d4d3f2
 --- /dev/null
 +++ b/frontend/src/components/HomeLoggedIn/components/DownloadFile/DownloadFile.jsx
 @@ -0,0 +1,107 @@
@@ -156,7 +158,7 @@ index 0000000..83831b2
 +          localStorage.getItem("disableAuth") === "true"
 +            ? {}
 +            : {
-+                Authorization: `Bearer ${token}`,
++                Authorization: `token ${token}`,
 +              },
 +      })
 +      .get(`${fileName}`)
@@ -238,5 +240,5 @@ index 0000000..e720e16
 @@ -0,0 +1 @@
 +export { default } from "./DownloadFile";
 -- 
-2.37.1.windows.1
+2.37.2.windows.2
 

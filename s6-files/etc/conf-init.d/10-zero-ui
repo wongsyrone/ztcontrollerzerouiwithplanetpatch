@@ -43,3 +43,11 @@ fi
 if [ -z "$ZU_DATAPATH" ]; then
     printf "data/db.json" > /var/run/s6/container_environment/ZU_DATAPATH
 fi
+
+if [ -z "$ZU_LAST_SEEN_FETCH" ]; then
+    printf "true" > /var/run/s6/container_environment/ZU_LAST_SEEN_FETCH
+fi
+
+if [ -z "$ZU_LAST_SEEN_SCHEDULE" ]; then
+    printf "*/5 * * * *" > /var/run/s6/container_environment/ZU_LAST_SEEN_SCHEDULE
+fi
