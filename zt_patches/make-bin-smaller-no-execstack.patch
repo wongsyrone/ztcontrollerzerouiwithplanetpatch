@@ -1,0 +1,21 @@
+no execstack
+Make binary smaller
+
+diff --git a/make-linux.mk b/make-linux.mk
+index e188d3e..1d8318c 100644
+--- a/make-linux.mk
++++ b/make-linux.mk
+@@ -67,10 +67,10 @@ ifeq ($(ZT_DEBUG),1)
+ node/Salsa20.o node/SHA512.o node/C25519.o node/Poly1305.o: CXXFLAGS=-Wall -O2 -g -pthread $(INCLUDES) $(DEFS)
+ else
+ 	CFLAGS?=-O3 -fstack-protector
+-	override CFLAGS+=-Wall -Wno-deprecated -pthread $(INCLUDES) -DNDEBUG $(DEFS)
++	override CFLAGS+=-Wall -Wno-deprecated -pthread $(INCLUDES) -DNDEBUG $(DEFS) -ffunction-sections -fdata-sections
+ 	CXXFLAGS?=-O3 -fstack-protector
+-	override CXXFLAGS+=-Wall -Wno-deprecated -std=c++17 -pthread $(INCLUDES) -DNDEBUG $(DEFS)
+-	LDFLAGS=-pie -Wl,-z,relro,-z,now
++	override CXXFLAGS+=-Wall -Wno-deprecated -std=c++17 -pthread $(INCLUDES) -DNDEBUG $(DEFS) -ffunction-sections -fdata-sections
++	LDFLAGS=-pie -Wl,-z,relro,-z,now -Wl,--gc-sections,--as-needed -Wl,-z,noexecstack
+ 	RUSTFLAGS=--release
+ endif
+ 

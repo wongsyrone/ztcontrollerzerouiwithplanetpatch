@@ -6,9 +6,11 @@ FROM ${BUILD_IMAGE}:${BUILD_IMAGE_VERSION} as builder
 
 ENV NODE_VERSION=lts.x
 # dev branch latest commit
-ENV ZEROTIER_ONE_COMMIT=880a99adf8670f2cc75903c8c22efeae3cc4a665
+ENV ZEROTIER_ONE_COMMIT=dc762196dc65d3de0b7adc6b4ac8bece95f5cd9e
 
 ENV PATCH_ALLOW=0
+
+ENV NODE_OPTIONS=--openssl-legacy-provider
 
 # Prepare Environment
 COPY patch /src/patch

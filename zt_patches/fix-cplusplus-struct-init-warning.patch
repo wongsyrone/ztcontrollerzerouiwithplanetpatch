@@ -1,0 +1,46 @@
+fix C++ struct init
+
+--- a/node/Capability.hpp
++++ b/node/Capability.hpp
+@@ -64,10 +64,10 @@ public:
+ 		_ts(0),
+ 		_id(0),
+ 		_maxCustodyChainLength(0),
+-		_ruleCount(0)
++		_ruleCount(0),
++		_custody{{0}}
+ 	{
+ 		memset(_rules,0,sizeof(_rules));
+-		memset(_custody,0,sizeof(_custody));
+ 	}
+ 
+ 	/**
+--- a/node/Network.hpp
++++ b/node/Network.hpp
+@@ -447,7 +447,7 @@ private:
+ 
+ 	struct _IncomingConfigChunk
+ 	{
+-		_IncomingConfigChunk() { memset(this,0,sizeof(_IncomingConfigChunk)); }
++		_IncomingConfigChunk() : ts(0), updateId(0), haveChunkIds{{0}}, haveChunks(0), haveBytes(0), data{} {}
+ 		uint64_t ts;
+ 		uint64_t updateId;
+ 		uint64_t haveChunkIds[ZT_NETWORK_MAX_UPDATE_CHUNKS];
+--- a/node/NetworkConfig.hpp
++++ b/node/NetworkConfig.hpp
+@@ -263,6 +263,7 @@ public:
+ 		capabilityCount(0),
+ 		tagCount(0),
+ 		certificateOfOwnershipCount(0),
++		staticIps{},
+ 		capabilities(),
+ 		tags(),
+ 		certificatesOfOwnership(),
+@@ -280,7 +281,6 @@ public:
+ 		name[0] = 0;
+ 		memset(specialists, 0, sizeof(uint64_t)*ZT_MAX_NETWORK_SPECIALISTS);
+ 		memset(routes, 0, sizeof(ZT_VirtualNetworkRoute)*ZT_MAX_NETWORK_ROUTES);
+-		memset(staticIps, 0, sizeof(InetAddress)*ZT_MAX_ZT_ASSIGNED_ADDRESSES);
+ 		memset(rules, 0, sizeof(ZT_VirtualNetworkRule)*ZT_MAX_NETWORK_RULES);
+ 		memset(&dns, 0, sizeof(ZT_VirtualNetworkDNS));
+ 		memset(authenticationURL, 0, sizeof(authenticationURL));
