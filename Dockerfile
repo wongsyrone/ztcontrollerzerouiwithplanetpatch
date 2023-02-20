@@ -97,6 +97,7 @@ COPY zero_ui_patches /src/zero-ui/zero_ui_patches
 RUN cd /src/zero-ui && \
     quilt series && \
     quilt push -a && \
+    npx update-browserslist-db@latest && \
     yarn install && \
     INLINE_RUNTIME_CHUNK=false GENERATE_SOURCEMAP=false yarn build
 
