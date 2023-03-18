@@ -2,3 +2,4 @@ disable-sso.patch
 add-ext-to-include-dir.patch
 make-bin-smaller-no-execstack.patch
 fix-cplusplus-struct-init-warning.patch
+controller-fix-undeclared-ident.patch
