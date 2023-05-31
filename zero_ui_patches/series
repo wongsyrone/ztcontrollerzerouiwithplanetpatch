@@ -1,3 +1,4 @@
 0001-feat-add-file-download-support.patch
 0002-feat-add-support-to-default-authtoken-location-of-ma.patch
 0003-feat-prefer-to-TLS-if-we-can-find-TLS-key-and-cert.patch
+0004-fix-fix-network-member-api-resp-handling.patch
