@@ -1,7 +1,7 @@
 From fb759616fdd8b51c67fd044c72333036d31c70ad Mon Sep 17 00:00:00 2001
 From: Syrone Wong <wong.syrone@gmail.com>
 Date: Sun, 14 Aug 2022 14:23:50 +0800
-Subject: [PATCH 2/4] feat: add support to default authtoken location of major
+Subject: [PATCH 2/5] feat: add support to default authtoken location of major
  platforms
 
 Signed-off-by: Syrone Wong <wong.syrone@gmail.com>

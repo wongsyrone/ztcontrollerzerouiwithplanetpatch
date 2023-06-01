@@ -2,3 +2,4 @@
 0002-feat-add-support-to-default-authtoken-location-of-ma.patch
 0003-feat-prefer-to-TLS-if-we-can-find-TLS-key-and-cert.patch
 0004-fix-fix-network-member-api-resp-handling.patch
+0005-fix-ping-peer-response-handling.patch
