@@ -1,12 +1,14 @@
 # build image -> https://github.com/zerotier/ZeroTierOne/blob/dev/ext/central-controller-docker
 ARG BUILD_IMAGE=ubuntu
 ARG BUILD_IMAGE_VERSION=jammy
+ARG NODE_MAJOR=18
 
+# --------------------------------------------------
 FROM ${BUILD_IMAGE}:${BUILD_IMAGE_VERSION} as builder
+ARG NODE_MAJOR
 
-ENV NODE_VERSION=lts.x
 # dev branch latest commit
-ENV ZEROTIER_ONE_COMMIT=54efb62731955ac372a9fde311d3bb9c3303db72
+ENV ZEROTIER_ONE_COMMIT=9ae8b0b3b60b27cf06d7e74629c17e4a0f248364
 
 ENV PATCH_ALLOW=0
 
@@ -16,10 +18,12 @@ ENV NODE_OPTIONS=--openssl-legacy-provider
 COPY patch /src/patch
 COPY config /src/config
 
-RUN apt update && apt -y install tree gnupg curl sudo quilt && \
+RUN apt update && apt -y install tree ca-certificates gnupg curl sudo quilt && \
+    sudo mkdir -p /etc/apt/keyrings && \
+    curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
+    echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_${NODE_MAJOR}.x nodistro main" | sudo tee /etc/apt/sources.list.d/nodesource.list && \
     curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | sudo apt-key add - && \
     echo "deb https://dl.yarnpkg.com/debian/ stable main" | sudo tee /etc/apt/sources.list.d/yarn.list && \
-    curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION} | bash - && \
     apt update && apt upgrade -y && \
     apt -y install \
         build-essential \
@@ -35,6 +39,40 @@ RUN apt update && apt -y install tree gnupg curl sudo quilt && \
         nodejs yarn python3 git bash jq tar make diffutils patch
 
 WORKDIR /src
+
+# Downloading and build latest tagged zero-ui
+
+RUN ZERO_UI_VERSION=$(curl --silent "https://api.github.com/repos/dec0dOS/zero-ui/tags" | jq -r '.[0].name') && \
+    echo "ZERO_UI_VERSION is ${ZERO_UI_VERSION}" && \
+    curl https://codeload.github.com/dec0dOS/zero-ui/tar.gz/refs/tags/${ZERO_UI_VERSION} --output /tmp/zero-ui.tar.gz && \
+    mkdir -p /src/ && \
+    cd /src && \
+    tar fxz /tmp/zero-ui.tar.gz && \
+    mv /src/zero-ui-* /src/zero-ui && \
+    rm -rf /tmp/zero-ui.tar.gz
+
+# patch zero-ui
+ENV QUILT_PATCHES=zero_ui_patches
+COPY zero_ui_patches /src/zero-ui/zero_ui_patches
+
+RUN cd /src/zero-ui && \
+    quilt series && \
+    quilt push -a
+
+# add yarn install-ed package to path
+ENV PATH="/src/zero-ui/node_modules/.bin:${PATH}"
+
+ENV GENERATE_SOURCEMAP=false
+
+# 1. install all dependencies including dev deps
+# 2. frontend build -> vite build
+# 3. shrink to backend dependencies
+RUN cd /src/zero-ui && \
+    yarn install && \
+    yarn workspace frontend build && \
+    yarn workspaces focus --production backend && yarn cache clean
+
+RUN tree /src/zero-ui -L 2
 
 # Downloading and build latest libpqxx
 RUN LIBPQXX_VERSION=$(curl --silent "https://api.github.com/repos/jtv/libpqxx/releases" | jq -r ".[0].tag_name") && \
@@ -79,29 +117,10 @@ RUN export PATH=$PATH:~/.cargo/bin && \
 RUN cd /src/ZeroTierOne/attic/world && \
     bash build.sh
 
-# Downloading and build latest tagged zero-ui
-
-RUN ZERO_UI_VERSION=$(curl --silent "https://api.github.com/repos/dec0dOS/zero-ui/tags" | jq -r '.[0].name') && \
-    echo "ZERO_UI_VERSION is ${ZERO_UI_VERSION}" && \
-    curl https://codeload.github.com/dec0dOS/zero-ui/tar.gz/refs/tags/${ZERO_UI_VERSION} --output /tmp/zero-ui.tar.gz && \
-    mkdir -p /src/ && \
-    cd /src && \
-    tar fxz /tmp/zero-ui.tar.gz && \
-    mv /src/zero-ui-* /src/zero-ui && \
-    rm -rf /tmp/zero-ui.tar.gz
-
-# patch zero-ui
-ENV QUILT_PATCHES=zero_ui_patches
-COPY zero_ui_patches /src/zero-ui/zero_ui_patches
-
-RUN cd /src/zero-ui && \
-    quilt series && \
-    quilt push -a && \
-    npx update-browserslist-db@latest && \
-    yarn install && \
-    INLINE_RUNTIME_CHUNK=false GENERATE_SOURCEMAP=false yarn build
+# --------------------------------------------------
 
 FROM ${BUILD_IMAGE}:${BUILD_IMAGE_VERSION}
+ARG NODE_MAJOR
 
 WORKDIR /app/ZeroTierOne
 
@@ -122,10 +141,12 @@ COPY --from=builder /src/config/world.c /app/config/world.c
 
 # Environment
 
-RUN apt update && apt -y install tree gnupg curl sudo && \
+RUN apt update && apt -y install tree ca-certificates gnupg curl sudo && \
+    sudo mkdir -p /etc/apt/keyrings && \
+    curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
+    echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_${NODE_MAJOR}.x nodistro main" | sudo tee /etc/apt/sources.list.d/nodesource.list && \
     curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | sudo apt-key add - && \
     echo "deb https://dl.yarnpkg.com/debian/ stable main" | sudo tee /etc/apt/sources.list.d/yarn.list && \
-    curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION} | bash - && \
     apt update && apt upgrade -y && \
     apt -y install \
         postgresql-client \
@@ -148,14 +169,13 @@ RUN S6_OVERLAY_VERSION=$(curl --silent "https://api.github.com/repos/just-contai
 # Frontend @ zero-ui
 COPY --from=builder /src/zero-ui/frontend/build /app/frontend/build/
 COPY --from=builder /src/zero-ui/frontend/down_folder /app/frontend/down_folder
+# - allow to download planet when logged-in
+RUN ln -s /app/config/planet /app/frontend/down_folder/planet
 
 # Backend @ zero-ui
 WORKDIR /app/backend
-COPY --from=builder /src/zero-ui/backend/package*.json /app/backend
-# - allow to download planet when logged-in
-RUN yarn install && \
-    ln -s /app/config/planet /app/frontend/down_folder/planet
 COPY --from=builder /src/zero-ui/backend /app/backend
+COPY --from=builder /src/zero-ui/node_modules /app/backend/node_modules
 
 # Create empty tls folder for TLS cert and key
 RUN mkdir -p /app/backend/tls
@@ -167,11 +187,11 @@ RUN chmod +x /etc/services.d/*/run
 # schema
 COPY ./schema /app/schema/
 
-# show customize important path at last
+# show path content
 RUN tree /app/config
 RUN tree /app/ZeroTierOne
-RUN tree /app/backend/tls
-RUN tree /app/frontend/down_folder
+RUN tree /app/backend --filelimit 50 || true
+RUN tree /app/frontend --filelimit 50 || true
 
 # default ports
 # 3000 - http

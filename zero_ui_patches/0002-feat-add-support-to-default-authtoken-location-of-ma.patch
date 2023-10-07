@@ -1,7 +1,7 @@
-From fb759616fdd8b51c67fd044c72333036d31c70ad Mon Sep 17 00:00:00 2001
+From 43a645da6b9413fa3c563e6f70493355bf8f8af8 Mon Sep 17 00:00:00 2001
 From: Syrone Wong <wong.syrone@gmail.com>
 Date: Sun, 14 Aug 2022 14:23:50 +0800
-Subject: [PATCH 2/5] feat: add support to default authtoken location of major
+Subject: [PATCH 2/3] feat: add support to default authtoken location of major
  platforms
 
 Signed-off-by: Syrone Wong <wong.syrone@gmail.com>
@@ -37,5 +37,5 @@ index 37f7338..4f102fb 100644
  
  module.exports = axios.create({
 -- 
-2.40.1.windows.1
+2.42.0.windows.2
 

@@ -1,7 +1,7 @@
-From 4463c77362c15e7e16fbf24bc1955c5f95a9da79 Mon Sep 17 00:00:00 2001
+From 2093dc012f32ad07e4949e99e1b4a7624a4a5c24 Mon Sep 17 00:00:00 2001
 From: Syrone Wong <wong.syrone@gmail.com>
 Date: Sun, 7 Aug 2022 20:41:31 +0800
-Subject: [PATCH 1/5] feat: add file download support
+Subject: [PATCH 1/3] feat: add file download support
 
 feat: backend: new api to download file such as planet
 
@@ -23,14 +23,15 @@ Signed-off-by: Syrone Wong <wong.syrone@gmail.com>
  .../components/HomeLoggedIn/HomeLoggedIn.jsx  |   3 +
  .../components/DownloadFile/DownloadFile.jsx  | 107 ++++++++++++++++++
  .../components/DownloadFile/index.jsx         |   1 +
- 7 files changed, 150 insertions(+)
+ frontend/vite.config.js                       |   1 +
+ 8 files changed, 151 insertions(+)
  create mode 100644 backend/routes/downfile.js
  create mode 100644 frontend/down_folder/.keep
  create mode 100644 frontend/src/components/HomeLoggedIn/components/DownloadFile/DownloadFile.jsx
  create mode 100644 frontend/src/components/HomeLoggedIn/components/DownloadFile/index.jsx
 
 diff --git a/backend/app.js b/backend/app.js
-index 95aeb65..321123d 100644
+index 9e5d75c..d07d483 100644
 --- a/backend/app.js
 +++ b/backend/app.js
 @@ -14,6 +14,7 @@ const authRoutes = require("./routes/auth");
@@ -41,7 +42,7 @@ index 95aeb65..321123d 100644
  
  const app = express();
  
-@@ -82,6 +83,7 @@ routerController.use("", controllerRoutes);
+@@ -83,6 +84,7 @@ routerController.use("", controllerRoutes);
  app.use("/auth", authRoutes);
  app.use("/api", routerAPI); // offical SaaS API compatible
  app.use("/controller", routerController); // other controller-specific routes
@@ -244,6 +245,18 @@ index 0000000..e720e16
 +++ b/frontend/src/components/HomeLoggedIn/components/DownloadFile/index.jsx
 @@ -0,0 +1 @@
 +export { default } from "./DownloadFile";
+diff --git a/frontend/vite.config.js b/frontend/vite.config.js
+index c2098ee..a99b1da 100644
+--- a/frontend/vite.config.js
++++ b/frontend/vite.config.js
+@@ -10,6 +10,7 @@ export default defineConfig({
+       "/auth": "http://127.0.0.1:4000",
+       "/api": "http://127.0.0.1:4000",
+       "/controller": "http://127.0.0.1:4000",
++      "/downfile": "http://127.0.0.1:4000",
+     },
+   },
+   resolve: {
 -- 
-2.40.1.windows.1
+2.42.0.windows.2
 
