@@ -1,11 +1,17 @@
-controller/PostgreSQL.cpp:1037:5: error: use of undeclared identifier 'w'
-                                 w.abort();
-                                 ^
+From 047647938b74560562287dd1e6f8cb51d9133793 Mon Sep 17 00:00:00 2001
+From: Syrone Wong <wong.syrone@gmail.com>
+Date: Thu, 9 May 2024 15:12:22 +0800
+Subject: [PATCH 4/5] controller fix undeclared identifier 'w'
+
+---
+ controller/PostgreSQL.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
 diff --git a/controller/PostgreSQL.cpp b/controller/PostgreSQL.cpp
-index 626fa4c26..ef029d4c0 100644
+index abfdbd31d..e9a633d17 100644
 --- a/controller/PostgreSQL.cpp
 +++ b/controller/PostgreSQL.cpp
-@@ -1020,8 +1020,8 @@ void PostgreSQL::heartbeat()
+@@ -1071,8 +1071,8 @@ void PostgreSQL::heartbeat()
  			std::string use_redis = (_rc != NULL) ? "true" : "false";
  			std::string redis_mem_status = (_redisMemberStatus) ? "true" : "false";
  			
@@ -15,3 +21,6 @@ index 626fa4c26..ef029d4c0 100644
  
  				pqxx::result res =
  					w.exec0("INSERT INTO ztc_controller (id, cluster_host, last_alive, public_identity, v_major, v_minor, v_rev, v_build, host_port, use_redis, redis_member_status) "
+-- 
+2.45.0.windows.1
+

@@ -1,11 +1,18 @@
-no execstack
-Make binary smaller
+From d23c91100482c305110e2c41a68e1e0de4efa519 Mon Sep 17 00:00:00 2001
+From: Syrone Wong <wong.syrone@gmail.com>
+Date: Thu, 9 May 2024 15:10:40 +0800
+Subject: [PATCH 2/5] no execstack
+
+make binary smaller
+---
+ make-linux.mk | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/make-linux.mk b/make-linux.mk
-index e188d3e..1d8318c 100644
+index 9f10cf216..c778f4d98 100644
 --- a/make-linux.mk
 +++ b/make-linux.mk
-@@ -67,10 +67,10 @@ ifeq ($(ZT_DEBUG),1)
+@@ -68,10 +68,10 @@ ifeq ($(ZT_DEBUG),1)
  node/Salsa20.o node/SHA512.o node/C25519.o node/Poly1305.o: CXXFLAGS=-Wall -O2 -g -pthread $(INCLUDES) $(DEFS)
  else
  	CFLAGS?=-O3 -fstack-protector
@@ -16,6 +23,9 @@ index e188d3e..1d8318c 100644
 -	LDFLAGS=-pie -Wl,-z,relro,-z,now
 +	override CXXFLAGS+=-Wall -Wno-deprecated -std=c++17 -pthread $(INCLUDES) -DNDEBUG $(DEFS) -ffunction-sections -fdata-sections
 +	LDFLAGS=-pie -Wl,-z,relro,-z,now -Wl,--gc-sections,--as-needed -Wl,-z,noexecstack
- 	RUSTFLAGS=--release
+ 	ZT_CARGO_FLAGS=--release
  endif
  
+-- 
+2.45.0.windows.1
+

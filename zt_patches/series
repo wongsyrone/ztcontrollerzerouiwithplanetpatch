@@ -1,5 +1,5 @@
-disable-sso.patch
-make-bin-smaller-no-execstack.patch
-fix-cplusplus-struct-init-warning.patch
-controller-fix-undeclared-ident.patch
-enable-http-log.patch
+0001-disable-sso.patch
+0002-no-execstack.patch
+0003-fix-C-struct-init.patch
+0004-controller-fix-undeclared-identifier-w.patch
+0005-enable-http-log.patch

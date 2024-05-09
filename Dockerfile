@@ -1,14 +1,16 @@
 # build image -> https://github.com/zerotier/ZeroTierOne/blob/dev/ext/central-controller-docker
 ARG BUILD_IMAGE=ubuntu
 ARG BUILD_IMAGE_VERSION=jammy
-ARG NODE_MAJOR=18
+ARG NODE_MAJOR=20
 
 # --------------------------------------------------
 FROM ${BUILD_IMAGE}:${BUILD_IMAGE_VERSION} as builder
 ARG NODE_MAJOR
 
 # dev branch latest commit
-ENV ZEROTIER_ONE_COMMIT=9ae8b0b3b60b27cf06d7e74629c17e4a0f248364
+ENV ZEROTIER_ONE_COMMIT=0fb9d439985635cd419a5e48a97748104e7be2f0
+# from myself-change-on-main branch
+ENV ZERO_UI_COMMIT=a004e8fb5ce1a146894de211b698b0d08b2e1232
 
 ENV PATCH_ALLOW=0
 
@@ -22,8 +24,6 @@ RUN apt update && apt -y install tree ca-certificates gnupg curl sudo quilt && \
     sudo mkdir -p /etc/apt/keyrings && \
     curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
     echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_${NODE_MAJOR}.x nodistro main" | sudo tee /etc/apt/sources.list.d/nodesource.list && \
-    curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | sudo apt-key add - && \
-    echo "deb https://dl.yarnpkg.com/debian/ stable main" | sudo tee /etc/apt/sources.list.d/yarn.list && \
     apt update && apt upgrade -y && \
     apt -y install \
         build-essential \
@@ -36,41 +36,31 @@ RUN apt update && apt -y install tree ca-certificates gnupg curl sudo quilt && \
         libssl-dev \
         postgresql-client \
         postgresql-client-common \
-        nodejs yarn python3 git bash jq tar make diffutils patch
+        nodejs python3 git bash jq tar make diffutils patch protobuf-compiler
 
 WORKDIR /src
 
-# Downloading and build latest tagged zero-ui
+# Downloading and build latest zero-ui from my repo
 
-RUN ZERO_UI_VERSION=$(curl --silent "https://api.github.com/repos/dec0dOS/zero-ui/tags" | jq -r '.[0].name') && \
-    echo "ZERO_UI_VERSION is ${ZERO_UI_VERSION}" && \
-    curl https://codeload.github.com/dec0dOS/zero-ui/tar.gz/refs/tags/${ZERO_UI_VERSION} --output /tmp/zero-ui.tar.gz && \
+RUN echo "ZERO_UI_COMMIT is ${ZERO_UI_COMMIT}" && \
+    curl https://codeload.github.com/wongsyrone/zero-ui/tar.gz/${ZERO_UI_COMMIT} --output /tmp/zero-ui.tar.gz && \
     mkdir -p /src/ && \
     cd /src && \
     tar fxz /tmp/zero-ui.tar.gz && \
     mv /src/zero-ui-* /src/zero-ui && \
     rm -rf /tmp/zero-ui.tar.gz
 
-# patch zero-ui
-ENV QUILT_PATCHES=zero_ui_patches
-COPY zero_ui_patches /src/zero-ui/zero_ui_patches
-
-RUN cd /src/zero-ui && \
-    quilt series && \
-    quilt push -a
-
-# add yarn install-ed package to path
-ENV PATH="/src/zero-ui/node_modules/.bin:${PATH}"
-
 ENV GENERATE_SOURCEMAP=false
 
-# 1. install all dependencies including dev deps
-# 2. frontend build -> vite build
-# 3. shrink to backend dependencies
 RUN cd /src/zero-ui && \
-    yarn install && \
-    yarn workspace frontend build && \
-    yarn workspaces focus --production backend && yarn cache clean
+    corepack enable && \
+	yarn workspaces focus frontend && \
+	cd /src/zero-ui/frontend && \
+	yarn build
+
+RUN cd /src/zero-ui && \
+    corepack enable && \
+	yarn workspaces focus --production backend && yarn cache clean
 
 RUN tree /src/zero-ui -L 2
 
@@ -106,6 +96,9 @@ RUN python3 /src/patch/patch.py
 RUN cd /src/ZeroTierOne && \
     quilt series && \
     quilt push -a
+
+# install rust crate 'prost-wkt-types' dep
+RUN apt install -y protobuf-compiler
 
 # install Rust toolchain
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
@@ -145,14 +138,12 @@ RUN apt update && apt -y install tree ca-certificates gnupg curl sudo && \
     sudo mkdir -p /etc/apt/keyrings && \
     curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
     echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_${NODE_MAJOR}.x nodistro main" | sudo tee /etc/apt/sources.list.d/nodesource.list && \
-    curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | sudo apt-key add - && \
-    echo "deb https://dl.yarnpkg.com/debian/ stable main" | sudo tee /etc/apt/sources.list.d/yarn.list && \
     apt update && apt upgrade -y && \
     apt -y install \
         postgresql-client \
         postgresql-client-common \
         libpq5 \
-        nodejs yarn wget git bash jq tar make xz-utils && \
+        nodejs wget git bash jq tar make xz-utils && \
     mkdir -p /var/lib/zerotier-one/ && \
     ln -s /app/config/authtoken.secret /var/lib/zerotier-one/authtoken.secret
 

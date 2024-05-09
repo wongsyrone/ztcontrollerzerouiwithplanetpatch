@@ -1,0 +1,24 @@
+From 89815f40e745f1f313647fa28cb37aafdef5c903 Mon Sep 17 00:00:00 2001
+From: Syrone Wong <wong.syrone@gmail.com>
+Date: Thu, 9 May 2024 15:08:10 +0800
+Subject: [PATCH 1/5] disable-sso
+
+---
+ make-linux.mk | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/make-linux.mk b/make-linux.mk
+index bfa416aa0..9f10cf216 100644
+--- a/make-linux.mk
++++ b/make-linux.mk
+@@ -292,6 +292,7 @@ ifeq ($(ZT_IA32),1)
+ 	ZT_USE_X64_ASM_ED25519=0
+ endif
+ 
++ZT_SSO_SUPPORTED=0
+ ifeq ($(ZT_SSO_SUPPORTED), 1)
+ 	ifeq ($(ZT_EMBEDDED),)
+ 		override DEFS+=-DZT_SSO_SUPPORTED=1
+-- 
+2.45.0.windows.1
+

@@ -1,5 +1,16 @@
-fix C++ struct init
+From 16c992f3b2e044be81136b37085817e2a8a1bcaf Mon Sep 17 00:00:00 2001
+From: Syrone Wong <wong.syrone@gmail.com>
+Date: Thu, 9 May 2024 15:11:22 +0800
+Subject: [PATCH 3/5] fix C++ struct init
 
+---
+ node/Capability.hpp    | 4 ++--
+ node/Network.hpp       | 2 +-
+ node/NetworkConfig.hpp | 2 +-
+ 3 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/node/Capability.hpp b/node/Capability.hpp
+index e57eec5bc..56ccce705 100644
 --- a/node/Capability.hpp
 +++ b/node/Capability.hpp
 @@ -64,10 +64,10 @@ public:
@@ -15,9 +26,11 @@ fix C++ struct init
  	}
  
  	/**
+diff --git a/node/Network.hpp b/node/Network.hpp
+index cc85b7d1f..e773c88e1 100644
 --- a/node/Network.hpp
 +++ b/node/Network.hpp
-@@ -447,7 +447,7 @@ private:
+@@ -454,7 +454,7 @@ private:
  
  	struct _IncomingConfigChunk
  	{
@@ -26,9 +39,11 @@ fix C++ struct init
  		uint64_t ts;
  		uint64_t updateId;
  		uint64_t haveChunkIds[ZT_NETWORK_MAX_UPDATE_CHUNKS];
+diff --git a/node/NetworkConfig.hpp b/node/NetworkConfig.hpp
+index 416bbfd78..d4375a38d 100644
 --- a/node/NetworkConfig.hpp
 +++ b/node/NetworkConfig.hpp
-@@ -263,6 +263,7 @@ public:
+@@ -267,6 +267,7 @@ public:
  		capabilityCount(0),
  		tagCount(0),
  		certificateOfOwnershipCount(0),
@@ -36,7 +51,7 @@ fix C++ struct init
  		capabilities(),
  		tags(),
  		certificatesOfOwnership(),
-@@ -280,7 +281,6 @@ public:
+@@ -284,7 +285,6 @@ public:
  		name[0] = 0;
  		memset(specialists, 0, sizeof(uint64_t)*ZT_MAX_NETWORK_SPECIALISTS);
  		memset(routes, 0, sizeof(ZT_VirtualNetworkRoute)*ZT_MAX_NETWORK_ROUTES);
@@ -44,3 +59,6 @@ fix C++ struct init
  		memset(rules, 0, sizeof(ZT_VirtualNetworkRule)*ZT_MAX_NETWORK_RULES);
  		memset(&dns, 0, sizeof(ZT_VirtualNetworkDNS));
  		memset(authenticationURL, 0, sizeof(authenticationURL));
+-- 
+2.45.0.windows.1
+
