@@ -1,17 +1,17 @@
-From be35a8abe78749b278dfbc3fc71b48c88c25b337 Mon Sep 17 00:00:00 2001
+From 1d260c338f76c620d35267d68b588ec9cd6d0ef6 Mon Sep 17 00:00:00 2001
 From: Syrone Wong <wong.syrone@gmail.com>
 Date: Thu, 9 May 2024 15:14:51 +0800
-Subject: [PATCH 5/5] enable http log
+Subject: [PATCH 5/6] enable http log
 
 ---
  service/OneService.cpp | 1 +
  1 file changed, 1 insertion(+)
 
 diff --git a/service/OneService.cpp b/service/OneService.cpp
-index 88a516ebd..6fb426b08 100644
+index 594ff02d..468ea88b 100644
 --- a/service/OneService.cpp
 +++ b/service/OneService.cpp
-@@ -221,6 +221,7 @@ bool bearerTokenValid(const std::string authHeader, const std::string &checkToke
+@@ -226,6 +226,7 @@ bool bearerTokenValid(const std::string authHeader, const std::string &checkToke
  	return true;
  }
  
@@ -20,5 +20,5 @@ index 88a516ebd..6fb426b08 100644
  std::string dump_headers(const httplib::Headers &headers) {
    std::string s;
 -- 
-2.45.0.windows.1
+2.47.0.windows.2
 

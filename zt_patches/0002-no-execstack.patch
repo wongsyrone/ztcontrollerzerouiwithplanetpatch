@@ -1,7 +1,7 @@
-From d23c91100482c305110e2c41a68e1e0de4efa519 Mon Sep 17 00:00:00 2001
+From 5c4ab62045debfc13b6131de493e984764f560ca Mon Sep 17 00:00:00 2001
 From: Syrone Wong <wong.syrone@gmail.com>
 Date: Thu, 9 May 2024 15:10:40 +0800
-Subject: [PATCH 2/5] no execstack
+Subject: [PATCH 2/6] no execstack
 
 make binary smaller
 ---
@@ -9,7 +9,7 @@ make binary smaller
  1 file changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/make-linux.mk b/make-linux.mk
-index 9f10cf216..c778f4d98 100644
+index 34beff93..d2a86afe 100644
 --- a/make-linux.mk
 +++ b/make-linux.mk
 @@ -68,10 +68,10 @@ ifeq ($(ZT_DEBUG),1)
@@ -27,5 +27,5 @@ index 9f10cf216..c778f4d98 100644
  endif
  
 -- 
-2.45.0.windows.1
+2.47.0.windows.2
 

@@ -3,3 +3,4 @@
 0003-fix-C-struct-init.patch
 0004-controller-fix-undeclared-identifier-w.patch
 0005-enable-http-log.patch
+0006-MYSELF-fix-missing-WorkflowIdReusePolicy.patch
