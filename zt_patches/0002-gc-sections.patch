@@ -1,0 +1,37 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Syrone Wong <wong.syrone@gmail.com>
+Date: Wed, 7 Oct 2026 06:32:21 +0800
+Subject: [PATCH 2/3] no-execstack-and-gc-sections
+
+---
+ CMakeLists.txt | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index a47eded..230d106 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -361,6 +361,12 @@ else()
+     # Release adds a stack protector; debug uses -O1 globally (with -O2 for the hot
+     # crypto sources, set per-file in node/CMakeLists.txt).
+     add_compile_options($<$<NOT:$<CONFIG:Debug>>:-fstack-protector>)
++    # MYSELF: per-function/per-data sections so unused code and data get
++    # garbage-collected at link time (smaller binary). Kept as plain options
++    # rather than a $<CONFIG:Debug> generator: the argument list contains a
++    # space, and CMake splits a generator expression used as an option value,
++    # which would corrupt the flag.
++    add_compile_options(-ffunction-sections -fdata-sections)
+     add_compile_options($<$<CONFIG:Debug>:-O1>)
+ endif()
+ 
+@@ -379,6 +385,10 @@ endif()
+ if(UNIX AND NOT APPLE)
+     string(APPEND CMAKE_EXE_LINKER_FLAGS " -Wl,-z,noexecstack")
+     string(APPEND CMAKE_EXE_LINKER_FLAGS_RELEASE " -pie -Wl,-z,relro,-z,now")
++    # MYSELF: pair with the -ffunction-sections/-fdata-sections above and drop
++    # unneeded shared-library deps. -Wl,-z,noexecstack is already applied
++    # unconditionally just above this block.
++    string(APPEND CMAKE_EXE_LINKER_FLAGS_RELEASE " -Wl,--gc-sections,--as-needed")
+     add_compile_definitions(ZT_SOFTWARE_UPDATE_DEFAULT="disable")
+ elseif(WIN32)
+     # Windows daemon defines from the vcxproj. ZT_EXPORT takes the dllexport branch in
