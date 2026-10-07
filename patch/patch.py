@@ -2,6 +2,7 @@
 # -*- coding: UTF-8 -*-
 
 import os
+import sys
 import json
 import time
 from datetime import datetime
@@ -75,10 +76,29 @@ def modifyMKWORLD(mFile, pFile):
 # @mFile, location of mkworld.cpp
 # @wFile, location of world.c
 def buildMKWORLD(mFile, wFile):
-    os.system(
-        "cd {} && g++ -I../../ -o mkworld ../../node/C25519.cpp ../../node/Salsa20.cpp ../../node/SHA512.cpp ../../node/Identity.cpp ../../node/Utils.cpp ../../node/InetAddress.cpp ../../osdep/OSUtils.cpp mkworld.cpp -std=c++11 -w".format(os.path.dirname(mFile)))
-    os.system(
-        "cd {} && {} > {}".format(os.path.dirname(mFile), os.path.join(os.path.dirname(mFile), "mkworld"), os.path.join(os.path.dirname(wFile), "world.c")))
+    # mkworld.cpp is vendored in this repo (see mkworld/README.md) because
+    # upstream deleted attic/world/ in commit 21986038b. It compiles against
+    # the ZeroTierOne source tree we just unpacked next to it.
+    ztDir = os.path.dirname(os.path.dirname(os.path.abspath(mFile)))  # .../ZeroTierOne
+    src = [
+        "ECC.cpp", "Salsa20.cpp", "SHA512.cpp", "Identity.cpp",
+        "Utils.cpp", "InetAddress.cpp",
+    ]
+    cpp = [os.path.join(ztDir, "node", f) for f in src]
+    cpp.append(os.path.join(ztDir, "osdep", "OSUtils.cpp"))
+    cpp.append(mFile)
+    cmd = "g++ -I{} -I{}/ext -o mkworld {} -std=c++11 -w".format(
+        ztDir, ztDir, " ".join('"%s"' % p for p in cpp))
+    rc = os.system(cmd)
+    if rc != 0:
+        print("FATAL: mkworld compilation failed (%s)" % cmd)
+        sys.exit(1)
+    rc = os.system("{} > \"{}\"".format(
+        os.path.join(os.path.dirname(mFile), "mkworld"),
+        os.path.abspath(wFile)))
+    if rc != 0:
+        print("FATAL: mkworld execution failed")
+        sys.exit(1)
 
 
 # Modify node/Topology.cpp
@@ -117,12 +137,17 @@ def patchPOSTGRESQL(pgFile, patchFile):
 
 
 def main():
-    mFile = os.path.abspath("./ZeroTierOne/attic/world/mkworld.cpp")
+    mFile = os.path.abspath("./mkworld/mkworld.cpp")
     tFile = os.path.abspath("./ZeroTierOne/node/Topology.cpp")
-    pgFile = os.path.abspath("./ZeroTierOne/controller/PostgreSQL.cpp")
+    pgFile = os.path.abspath("./ZeroTierOne/nonfree/controller/PostgreSQL.cpp")
     pFile = os.path.abspath("./patch/planets.json")
     patchFile = os.path.abspath("./patch/PostgreSQL.cpp.patch")
     wFile = os.path.abspath("./config/world.c")
+
+    for f in (mFile, tFile, pgFile, pFile):
+        if not os.path.exists(f):
+            print("FATAL: expected path missing: %s" % f)
+            sys.exit(1)
 
     # Modify mkworld.cpp with planets.json
     modifyMKWORLD(mFile, pFile)
@@ -130,7 +155,7 @@ def main():
     buildMKWORLD(mFile, wFile)
     # Modify node/Topology.cpp with world.c
     modifyTOPOLOGY(tFile, wFile)
-    # Patch controller/PostgreSQL.cpp
+    # Patch nonfree/controller/PostgreSQL.cpp
     # patchPOSTGRESQL(pgFile, patchFile)
 
 
