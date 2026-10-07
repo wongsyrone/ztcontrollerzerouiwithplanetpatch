@@ -1,0 +1,34 @@
+# Normalise to LF in the repo and check out LF in the working tree.
+#
+# This matters for correctness, not just tidiness:
+#
+#   * quilt patches must apply in the builder, which runs on Linux. A patch
+#     committed with CRLF line endings fails to apply (git strips the trailing
+#     CR when diffing, so the patch file itself has to be LF to match).
+#   * Docker is invoked with these files directly; a CRLF shell script keeps the
+#     \r and breaks with "bad interpreter".
+#   * exec bits are meaningless on Windows checkouts, so the s6 run scripts are
+#     chmod +x'd explicitly in the Dockerfile rather than relying on the file mode.
+#
+# *.patch is marked binary so git never rewrites or reflows patch payloads.
+* text=auto eol=lf
+
+*.patch -text
+*.diff -text
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.sql text eol=lf
+*.cpp text eol=lf
+*.hpp text eol=lf
+*.py text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+
+# s6 run scripts must be executable. Recorded in the index so the mode survives
+# even on a Windows checkout; the Dockerfile also chmod +x's them defensively.
+s6-files/etc/services.d/*/run text eol=lf
+s6-files/etc/services.d/zerotier/run text eol=lf
+s6-files/etc/services.d/backend/run text eol=lf
+s6-files/etc/conf-init.d/* text eol=lf
