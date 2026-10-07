@@ -1,4 +1,21 @@
 #!/command/with-contenv bash
+# ZeroTierOne controller (1.16.x)
+#
+# ZT_CONTROLLER_FLAVOR is baked into the image at build time:
+#
+#   embedded  the daemon is built with ZT_NONFREE, so the controller is the
+#             bundled FileDB. Networks and members are JSON files under
+#             /app/config/controller.d. No database, no migrations.
+#   central   the daemon is built with ZT1_CENTRAL_CONTROLLER, so the controller
+#             is CentralDB and EmbeddedNetworkController::init() hard-requires a
+#             controllerDbPath starting with "postgres:". Anything else aborts
+#             the process at startup.
+#
+# ZT_PGSQL only has meaning in the central flavour. Requesting it on an embedded
+# image is a configuration error, not something to silently ignore: the daemon
+# would be handed a postgres: path it cannot open.
+
+FLAVOUR="${ZT_CONTROLLER_FLAVOR:-embedded}"
 
 if [ -z "$ZT_PRIMARY_PORT" ]; then
     ZT_PRIMARY_PORT=9993
@@ -6,25 +23,111 @@ if [ -z "$ZT_PRIMARY_PORT" ]; then
     printf "9993" > /var/run/s6/container_environment/ZT_PRIMARY_PORT
 fi
 
+if [ "$FLAVOUR" = "embedded" ] && [ "${ZT_PGSQL}" = "true" ]; then
+    echo "*** FAILED: ZT_PGSQL=true on an embedded-flavour image" >&2
+    echo "***        This build has no Postgres controller. Either drop ZT_PGSQL," >&2
+    echo "***        or build the central flavour:" >&2
+    echo "***          docker build --build-arg ZT_CONTROLLER_FLAVOR=central ." >&2
+    exit 1
+fi
+
 while [ ! -f /app/config/local.conf ]; do
-    if [ "${ZT_PGSQL}" = "true" ]; then
-        # PGSQL
-        echo "{\"settings\":{\"primaryPort\":${ZT_PRIMARY_PORT},\"allowManagementFrom\":[\"0.0.0.0/0\"],\"controllerDbPath\":\"postgres:host=${ZT_PGSQL_HOST} port=${ZT_PGSQL_PORT} dbname=${ZT_PGSQL_DB} user=${ZT_PGSQL_USER} password=${ZT_PGSQL_PASS} sslmode=prefer sslcert= sslkey= sslrootcert=\",\"portMappingEnabled\":true,\"softwareUpdate\":\"disable\",\"interfacePrefixBlacklist\":[\"inot\",\"nat64\"]}}"  > /app/config/local.conf
+    if [ "$FLAVOUR" = "central" ]; then
+        # Central always needs Postgres; the daemon refuses to start otherwise.
+        if [ "${ZT_PGSQL}" != "true" ]; then
+            echo "*** FAILED: ZT_CONTROLLER_FLAVOR=central requires ZT_PGSQL=true" >&2
+            exit 1
+        fi
+        # The "controller" block is mandatory here, not optional. ControllerConfig
+        # defaults listenMode/statusMode to "", and EmbeddedNetworkController::init()
+        # rejects anything that is not "pgsql"/"redis"/"pubsub", so omitting it
+        # aborts the daemon with "unsupported listen mode".
+        #
+        # otel is written only when ZT_EXPORTER_ENDPOINT is set. Leaving the key
+        # out entirely is the supported way to say "no tracing": OneService then
+        # emits no warning, whereas an object with an empty endpoint warns twice.
+        OTEL_CONF=""
+        if [ -n "${ZT_EXPORTER_ENDPOINT}" ]; then
+            OTEL_CONF=",\"otel\":{\"exporterEndpoint\":\"${ZT_EXPORTER_ENDPOINT}\",\"exporterSampleRate\":${ZT_EXPORTER_SAMPLE_RATE:-1.0}}"
+        fi
+        cat > /app/config/local.conf <<EOF
+{
+  "settings": {
+    "primaryPort": ${ZT_PRIMARY_PORT},
+    "allowManagementFrom": ["0.0.0.0/0"],
+    "controllerDbPath": "postgres:host=${ZT_PGSQL_HOST} port=${ZT_PGSQL_PORT} dbname=${ZT_PGSQL_DB} user=${ZT_PGSQL_USER} password=${ZT_PGSQL_PASS} sslmode=prefer sslcert= sslkey= sslrootcert=",
+    "portMappingEnabled": true,
+    "softwareUpdate": "disable",
+    "interfacePrefixBlacklist": ["inot", "nat64"],
+    "enableMetrics": true${OTEL_CONF}
+  },
+  "controller": {
+    "listenMode": "${ZT_LISTEN_MODE:-pgsql}",
+    "statusMode": "${ZT_STATUS_MODE:-pgsql}",
+    "assignedCentralVersion": "${ZT_ASSIGNED_CENTRAL_VERSION:-all}",
+    "ssoEnabled": false,
+    "redis": null
+  }
+}
+EOF
     else
-        # NO PGSQL
-        echo "{\"settings\": {\"primaryPort\": ${ZT_PRIMARY_PORT}, \"allowManagementFrom\": [\"0.0.0.0/0\"]}}" > /app/config/local.conf
+        # Embedded: omit controllerDbPath entirely so OneService falls back to
+        # <home>/controller.d and constructs FileDB with it.
+        echo "{\"settings\": {\"primaryPort\": ${ZT_PRIMARY_PORT}, \"allowManagementFrom\": [\"0.0.0.0/0\"], \"portMappingEnabled\": true, \"softwareUpdate\": \"disable\", \"interfacePrefixBlacklist\": [\"inot\", \"nat64\"]}}" > /app/config/local.conf
     fi
 done
 
-if [ -z "$ZT_PGSQL_INIT" ]; then
-    if [ "${ZT_PGSQL_INIT}" = "true" ]; then
-        # init postgresql database
-        echo "Init PostgreSQL database ..."
-        echo "DROP DATABASE ${ZT_PGSQL_DB};\nCREATE DATABASE ${ZT_PGSQL_DB};\n" > /app/schema/createDB.sql
-        /usr/bin/psql postgresql://${ZT_PGSQL_USER}:${ZT_PGSQL_PASS}@${ZT_PGSQL_HOST}:${ZT_PGSQL_PORT}/ -f /app/schema/createDB.sql
-        /usr/bin/psql postgresql://${ZT_PGSQL_USER}:${ZT_PGSQL_PASS}@${ZT_PGSQL_HOST}:${ZT_PGSQL_PORT}/${ZT_PGSQL_DB} -f /app/schema/createTables.sql
-    fi
+# Initialise the Postgres schema (central flavour only).
+#
+# Applied with golang-migrate, the same tool and the same invocation upstream's
+# own ext/central-controller-docker/main.sh uses, against the same migrations
+# directory. Nothing about the migration sequence is reimplemented here: the
+# applied set lives in controller_migrations, which migrate itself creates and
+# maintains, and a migration added upstream after the pinned commit is applied by
+# the next image build with no local edit.
+#
+# ZT_PGSQL_INIT is a one-shot trigger, not configuration. It names the operation
+# "create the schema", which only ever needs to happen once, so it is cleared
+# afterwards and anything reading the environment later in the container lifetime
+# sees it as consumed rather than inferring "still initialising". Leaving it set
+# in a compose file stays correct, because migrate reports "no change" when every
+# migration has already been applied.
+if [ "$FLAVOUR" = "central" ] && [ "${ZT_PGSQL_INIT}" = "true" ]; then
+    echo "Init PostgreSQL database ..."
+    PGSQL_URL="postgresql://${ZT_PGSQL_USER}:${ZT_PGSQL_PASS}@${ZT_PGSQL_HOST}:${ZT_PGSQL_PORT}"
+    DB_URL="${PGSQL_URL}/${ZT_PGSQL_DB}"
+    echo "CREATE DATABASE ${ZT_PGSQL_DB};" | /usr/bin/psql "${PGSQL_URL}/" -f - \
+        || echo "database ${ZT_PGSQL_DB} already present, continuing"
+
+    echo "Migrating database (if needed) ..."
+    /usr/local/bin/migrate \
+        -source file:///migrations \
+        -database "${DB_URL}?x-migrations-table=controller_migrations&sslmode=disable" \
+        up || {
+            echo "FATAL: schema migration failed" >&2
+            exit 1
+        }
+
+    echo "--- applied migrations ---"
+    /usr/bin/psql "${DB_URL}" -tAc "SELECT version FROM controller_migrations ORDER BY version;" || true
+
+    # Consume the flag. container_environment/ is this container's own copy of the
+    # environment, so clearing it here does not affect the host's compose file or
+    # any sibling service; it only stops the rest of this container from seeing a
+    # one-shot flag that has already done its job.
+    printf "false" > /var/run/s6/container_environment/ZT_PGSQL_INIT
+    unset ZT_PGSQL_INIT
+    echo "ZT_PGSQL_INIT consumed; schema initialisation complete"
 fi
 
 ZT_PRIMARY_PORT=`/bin/cat /app/config/local.conf | /usr/bin/jq -r '.settings.primaryPort'`
-/app/ZeroTierOne/zerotier-one -p${ZT_PRIMARY_PORT} /app/config
+
+# jemalloc lives under the multiarch dir, so resolve it at start rather than
+# baking in a path. Matches upstream's own main.sh.
+JEMALLOC="$(ldconfig -p 2>/dev/null | awk '/libjemalloc\.so\.2/ {print $NF; exit}')"
+if [ -n "$JEMALLOC" ]; then
+    export LD_PRELOAD="$JEMALLOC"
+fi
+
+echo "Starting zerotier-one (flavour=${FLAVOUR}, port=${ZT_PRIMARY_PORT})"
+exec /app/ZeroTierOne/zerotier-one -p${ZT_PRIMARY_PORT} /app/config
