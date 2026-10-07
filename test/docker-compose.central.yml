@@ -1,0 +1,83 @@
+# Local bring-up for the `central` flavour.
+#
+# Purpose: decide whether `ZT_CONTROLLER_FLAVOR=central` is worth keeping in CI.
+# The central controller needs an external Postgres, so "self-deploy
+# self-maintain" only holds if this stack comes up unattended and the controller
+# reports ready on its own.
+#
+#   docker compose -f test/docker-compose.central.yml up -d
+#   docker compose -f test/docker-compose.central.yml logs -f zerotier
+#   docker compose -f test/docker-compose.central.yml down -v
+#
+# Not committed to the published image: this lives under test/ purely as a
+# local harness. Everything it needs is already wired into the image.
+
+name: ztcentral
+
+services:
+  pg:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: zt
+      POSTGRES_PASSWORD: zt
+      POSTGRES_DB: zt
+    healthcheck:
+      # The controller starts as soon as s6 runs it, and it will fail its first
+      # connection attempt if Postgres is not accepting yet. Waiting here turns a
+      # race into a dependency.
+      test: ["CMD-SHELL", "pg_isready -U zt -d zt"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    # No published port: only the controller talks to it.
+    expose:
+      - "5432"
+
+  zerotier:
+    image: wongsyrone/ztcontrollerzerouiwithplanetpatch:latest-central
+    depends_on:
+      pg:
+        condition: service_healthy
+    environment:
+      # ZT_CONTROLLER_FLAVOR is already baked into the image as central; it is
+      # repeated here so the failure mode is explicit if the tag ever changes.
+      ZT_CONTROLLER_FLAVOR: central
+
+      # The run script refuses to start without this pair.
+      ZT_PGSQL: "true"
+      ZT_PGSQL_INIT: "true"
+
+      ZT_PGSQL_HOST: pg
+      ZT_PGSQL_PORT: "5432"
+      ZT_PGSQL_DB: zt
+      ZT_PGSQL_USER: zt
+      ZT_PGSQL_PASS: zt
+
+      # zero-ui backend, listening on 4000/https and 3000/http.
+      ZU_LISTEN_PORT: "4000"
+      LISTEN_ADDRESS: 0.0.0.0
+      ZU_CONTROLLER_ENDPOINT: http://localhost:9993/
+      NODE_ENV: production
+    ports:
+      - "3000:3000"
+      - "4000:4000"
+      - "9993:9993"
+      - "9993:9993/udp"
+    volumes:
+      # Keeps identity.public / identity.secret / authtoken.secret and the
+      # zerotier-one config dir across restarts. Without this the controller
+      # signs a new world key every boot and existing members lose their
+      # controller.
+      - zt-data:/app/config
+      - zt-var:/var/lib/zerotier-one
+    healthcheck:
+      # The controller answers on its own API port once the DB is wired up.
+      test: ["CMD-SHELL", "curl -fsS -H \"Authorization: bearer $(cat /app/config/authtoken.secret 2>/dev/null)\" http://localhost:9993/controller/network >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+
+volumes:
+  zt-data:
+  zt-var:
