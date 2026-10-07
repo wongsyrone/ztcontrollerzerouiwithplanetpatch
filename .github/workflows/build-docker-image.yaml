@@ -1,51 +1,134 @@
 name: 'Build docker image-wongsyrone'
-on: 
+on:
   # Auto build on push to main branch
   push:
     paths-ignore:
       - "README.md"
       - ".gitignore"
       - "LICENSE"
+      - "mkworld/README.md"
     branches:
       - main
-  # Auto build @ every Monday 6:00am
-  #schedule:
-  #  - cron: '0 6 * * 1'
+  # Manual re-run
+  workflow_dispatch:
+
 jobs:
   build:
-    name: 'Build docker image'
+    name: 'Build docker image (${{ matrix.flavour }})'
     runs-on: ubuntu-latest
 
-    # Use the Bash shell regardless whether the GitHub Actions runner is ubuntu-latest, macos-latest, or windows-latest
+    strategy:
+      # central compiles opentelemetry-cpp's SDK and google-cloud-cpp from
+      # source; embedded only needs the header-only API. Run them independently
+      # so a failure or a slow cold build in one does not block the other.
+      fail-fast: false
+      matrix:
+        include:
+          - flavour: embedded
+            tag_suffix: ''
+          - flavour: central
+            tag_suffix: '-central'
+
+    # scripts/bootstrap-deps.sh in central mode compiles opentelemetry-cpp
+    # (SDK + OTLP exporters) and google-cloud-cpp from source; that routinely
+    # takes longer than the default 360-minute ceiling on a cold cache, but 90
+    # keeps a genuinely wedged build from burning the whole afternoon.
+    timeout-minutes: 90
+
     defaults:
-        run:
-          shell: bash
+      run:
+        shell: bash
 
     steps:
     - run: echo "🎉 The job was automatically triggered by a ${{ github.event_name }} event."
     - run: echo "🐧 This job is now running on a ${{ runner.os }} server hosted by GitHub!"
     - run: echo "🔎 The name of your branch is ${{ github.ref }} and your repository is ${{ github.repository }}."
 
-    # Checkout the repository to the GitHub Actions runner
+    # NOTE: must run AFTER checkout -- it reads the pinned commits out of the
+    # Dockerfile, which is not in the workspace until then.
     - name: 'Checkout the repository to the GitHub Actions runner'
-      uses: actions/checkout@v3.1.0
+      uses: actions/checkout@v4
 
-    # Set up QEMU
+    # The ZeroTierOne and zero-ui commits are pinned inside the Dockerfile, not
+    # the workflow. Read them out of the file so the image tag records exactly
+    # what was built and can be traced back to a source revision.
+    - name: 'Resolve pinned source revisions'
+      id: revs
+      run: |
+        set -euo pipefail
+        ZT_SHA="$(sed -n 's/^ENV ZEROTIER_ONE_COMMIT=\([0-9a-f]\{40\}\).*/\1/p' Dockerfile | head -1)"
+        UI_SHA="$(sed -n 's/^ENV ZERO_UI_COMMIT=\([0-9a-f]\{40\}\).*/\1/p' Dockerfile | head -1)"
+        if [ -z "$ZT_SHA" ] || [ -z "$UI_SHA" ]; then
+          echo "::error::Could not parse ZEROTIER_ONE_COMMIT / ZERO_UI_COMMIT from Dockerfile"
+          grep -n 'ZEROTIER_ONE_COMMIT\|ZERO_UI_COMMIT' Dockerfile || true
+          exit 1
+        fi
+        {
+          echo "zt=${ZT_SHA:0:8}"
+          echo "ui=${UI_SHA:0:8}"
+        } >> "$GITHUB_OUTPUT"
+        echo "ZeroTierOne=$ZT_SHA"
+        echo "zero-ui=$UI_SHA"
+        echo "flavour=${{ matrix.flavour }}"
+        echo "tag candidate: ${ZT_SHA:0:8}-${UI_SHA:0:8}${{ matrix.tag_suffix }}"
+
     - name: 'Set up QEMU'
-      uses: docker/setup-qemu-action@v2.1.0
+      uses: docker/setup-qemu-action@v3
 
-    # Login to DockerHub with username and token
-    - name: Login to DockerHub with username and token
-      uses: docker/login-action@v2.1.0
+    - name: 'Set up Docker Buildx'
+      uses: docker/setup-buildx-action@v3
+
+    - name: 'Login to DockerHub with username and token'
+      uses: docker/login-action@v3
       with:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-    # Build image and push to DockerHub
+    # Two tags per flavour:
+    #   latest[-central]                        - floating, moves on every main
+    #                                             build. embedded keeps the
+    #                                             unsuffixed `latest` so existing
+    #                                             :latest users get the default
+    #                                             (database-free) build rather
+    #                                             than one that refuses to start
+    #                                             without Postgres.
+    #   <zt-sha8>-<ui-sha8>[-central]           - immutable. Nothing reuses it,
+    #                                             so any past build can be
+    #                                             re-pulled and bisected.
     - name: "Build image and push to DockerHub"
-      uses: docker/build-push-action@v3.2.0
+      uses: docker/build-push-action@v5
       with:
         context: .
         push: true
-        tags: wongsyrone/ztcontrollerzerouiwithplanetpatch:latest
-    
+        provenance: false
+        build-args: |
+          ZT_CONTROLLER_FLAVOR=${{ matrix.flavour }}
+        cache-from: type=gha
+        # Scope the cache per flavour: they share the apt/rust/zero-ui layers but
+        # diverge sharply at bootstrap-deps and the cmake configure, so sharing
+        # would let each evict the other's expensive layers.
+        cache-to: type=gha,mode=max,scope=${{ matrix.flavour }}
+        tags: |
+          wongsyrone/ztcontrollerzerouiwithplanetpatch:latest${{ matrix.tag_suffix }}
+          wongsyrone/ztcontrollerzerouiwithplanetpatch:${{ steps.revs.outputs.zt }}-${{ steps.revs.outputs.ui }}${{ matrix.tag_suffix }}
+
+    - name: 'Summarise'
+      run: |
+        echo "### Image published (${{ matrix.flavour }}) :white_check_mark:" >> "$GITHUB_STEP_SUMMARY"
+        echo "" >> "$GITHUB_STEP_SUMMARY"
+        echo "| component | revision |" >> "$GITHUB_STEP_SUMMARY"
+        echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
+        echo "| ZeroTierOne (dev) | \`${{ steps.revs.outputs.zt }}\` |" >> "$GITHUB_STEP_SUMMARY"
+        echo "| zero-ui | \`${{ steps.revs.outputs.ui }}\` |" >> "$GITHUB_STEP_SUMMARY"
+        echo "" >> "$GITHUB_STEP_SUMMARY"
+        echo '```' >> "$GITHUB_STEP_SUMMARY"
+        echo "wongsyrone/ztcontrollerzerouiwithplanetpatch:latest${{ matrix.tag_suffix }}" >> "$GITHUB_STEP_SUMMARY"
+        echo "wongsyrone/ztcontrollerzerouiwithplanetpatch:${{ steps.revs.outputs.zt }}-${{ steps.revs.outputs.ui }}${{ matrix.tag_suffix }}" >> "$GITHUB_STEP_SUMMARY"
+        echo '```' >> "$GITHUB_STEP_SUMMARY"
+        if [ "${{ matrix.flavour }}" = "embedded" ]; then
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "FileDB controller, no database required." >> "$GITHUB_STEP_SUMMARY"
+        else
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Central controller, **requires \`ZT_PGSQL=true\`** and a reachable Postgres." >> "$GITHUB_STEP_SUMMARY"
+        fi
